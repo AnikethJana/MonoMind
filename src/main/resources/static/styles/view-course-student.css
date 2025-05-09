@@ -1,0 +1,200 @@
+/* Dark Theme CSS for Course View Student Page - Exactly matching the image */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #111827;
+    color: #fff;
+}
+
+.navbar {
+    background-color: #111827;
+    padding: 15px 30px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.container {
+    padding: 0;
+    max-width: 700px;
+    margin: 20px auto;
+}
+
+.back-link {
+    color: #60a5fa;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.back-link:before {
+    content: "\f060";
+    /* Font Awesome arrow left */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 8px;
+    font-size: 14px;
+    color: #60a5fa;
+}
+
+.course-card {
+    background-color: #1f2937;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.course-title {
+    color: white;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 20px 0;
+}
+
+.course-instructor {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.course-instructor-icon {
+    color: #60a5fa;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    width: 16px;
+}
+
+.course-description {
+    display: flex;
+    align-items: flex-start;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.taught-by {
+    margin-left: 10px;
+    margin-right: 5px;
+}
+
+.course-description-icon {
+    color: #60a5fa;
+    margin-right: 8px;
+    margin-top: 3px;
+    display: flex;
+    flex-shrink: 0;
+    width: 16px;
+}
+
+.course-materials-card {
+    background-color: #1f2937;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.materials-header {
+    display: flex;
+    align-items: center;
+    margin: 0 0 20px 0;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.materials-icon {
+    color: #60a5fa;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    width: 16px;
+}
+
+.material-item {
+    display: flex;
+    align-items: center;
+    padding: 14px;
+    background-color: #252f3f;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.material-item:hover {
+    background-color: #2d3748;
+}
+
+.material-icon {
+    color: #60a5fa;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    width: 16px;
+}
+
+.material-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.material-type {
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.material-due-date {
+    color: #fb7185;
+    font-size: 12px;
+    font-weight: 500;
+    display: block;
+    margin-top: 4px;
+}
+
+.empty-materials {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.empty-icon {
+    color: #4b5563;
+    margin-bottom: 12px;
+    font-size: 40px;
+}
+
+/* Hide the original navigation and structure */
+.navbar h1,
+.navbar div,
+.link-back {
+    display: none;
+}
+
+/* Hide default hr */
+hr {
+    display: none;
+}
+
+/* Font Awesome icon sizing and positioning */
+.fas {
+    font-size: 16px;
+}
+
+.empty-icon .fas {
+    font-size: 40px;
+}

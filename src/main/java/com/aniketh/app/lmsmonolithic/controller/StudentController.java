@@ -47,17 +47,28 @@ public class StudentController {
 
     @GetMapping("/dashboard")
     public String studentDashboard(HttpSession session, Model model) {
-        if (!isStudent(session)) return "redirect:/login";
+        if (!isStudent(session))
+            return "redirect:/login";
         User student = (User) session.getAttribute("user");
         model.addAttribute("user", student);
-        List<Course> courses = courseService.getAllCourses();
-        model.addAttribute("courses", courses);
+
+        // Get all available courses
+        List<Course> allCourses = courseService.getAllCourses();
+
+        // Get enrolled courses
+        List<Course> enrolledCourses = courseService.getEnrolledCourses(student.getId());
+
+        // Add to model
+        model.addAttribute("courses", allCourses);
+        model.addAttribute("enrolledCourses", enrolledCourses);
         return "student-dashboard";
     }
 
     @GetMapping("/course/{courseId}")
-    public String viewCoursePage(@PathVariable Long courseId, HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!isStudent(session)) return "redirect:/login";
+    public String viewCoursePage(@PathVariable Long courseId, HttpSession session, Model model,
+            RedirectAttributes redirectAttributes) {
+        if (!isStudent(session))
+            return "redirect:/login";
         User student = (User) session.getAttribute("user");
         Optional<Course> courseOpt = courseService.getCourseById(courseId);
 
@@ -65,6 +76,14 @@ public class StudentController {
             redirectAttributes.addFlashAttribute("error", "Course not found.");
             return "redirect:/student/dashboard";
         }
+
+        // Check if student is enrolled in the course
+        boolean isEnrolled = courseService.isStudentEnrolled(courseId, student.getId());
+        if (!isEnrolled) {
+            redirectAttributes.addFlashAttribute("error", "You must be enrolled in this course to access its content.");
+            return "redirect:/student/dashboard";
+        }
+
         model.addAttribute("user", student);
         model.addAttribute("course", courseOpt.get());
         model.addAttribute("courseworkList", courseService.getCourseworkForCourse(courseId));
@@ -72,8 +91,10 @@ public class StudentController {
     }
 
     @GetMapping("/coursework/{courseworkId}")
-    public String viewCourseworkPage(@PathVariable Long courseworkId, HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!isStudent(session)) return "redirect:/login";
+    public String viewCourseworkPage(@PathVariable Long courseworkId, HttpSession session, Model model,
+            RedirectAttributes redirectAttributes) {
+        if (!isStudent(session))
+            return "redirect:/login";
         User student = (User) session.getAttribute("user");
         Optional<Coursework> courseworkOpt = courseService.getCourseworkById(courseworkId);
 
@@ -96,12 +117,15 @@ public class StudentController {
         } else if (coursework.getType() == CourseworkType.QUIZ) {
             List<QuizQuestion> questions = courseService.getQuizQuestions(coursework);
             model.addAttribute("quizQuestions", questions);
-            Optional<QuizSubmission> quizSubmissionOpt = courseService.getStudentQuizSubmission(courseworkId, student.getId());
+            Optional<QuizSubmission> quizSubmissionOpt = courseService.getStudentQuizSubmission(courseworkId,
+                    student.getId());
             quizSubmissionOpt.ifPresent(qs -> model.addAttribute("existingQuizSubmission", qs));
 
             if (quizSubmissionOpt.isPresent() && quizSubmissionOpt.get().getAnswersJson() != null) {
                 try {
-                    Map<String, Integer> answersMap = objectMapper.readValue(quizSubmissionOpt.get().getAnswersJson(), new TypeReference<Map<String, Integer>>() {});
+                    Map<String, Integer> answersMap = objectMapper.readValue(quizSubmissionOpt.get().getAnswersJson(),
+                            new TypeReference<Map<String, Integer>>() {
+                            });
                     model.addAttribute("submittedAnswers", answersMap);
                 } catch (IOException e) {
                     System.err.println("Error parsing submitted quiz answers: " + e.getMessage());
@@ -113,11 +137,12 @@ public class StudentController {
 
     @PostMapping("/assignment/{courseworkId}/submit")
     public String handleAssignmentSubmission(@PathVariable Long courseworkId,
-                                             @RequestParam("assignmentFile") MultipartFile assignmentFile,
-                                             HttpSession session,
-                                             RedirectAttributes redirectAttributes) {
+            @RequestParam("assignmentFile") MultipartFile assignmentFile,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
         // ... (existing code - unchanged)
-        if (!isStudent(session)) return "redirect:/login";
+        if (!isStudent(session))
+            return "redirect:/login";
         User student = (User) session.getAttribute("user");
         if (assignmentFile.isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Please select a file for the assignment.");
@@ -138,9 +163,11 @@ public class StudentController {
     public ResponseEntity<Resource> viewStudentNoteFile(@PathVariable Long courseworkId, HttpSession session) {
         // ... (existing code - unchanged)
         User student = (User) session.getAttribute("user");
-        if (!isStudent(session)) return ResponseEntity.status(401).build();
+        if (!isStudent(session))
+            return ResponseEntity.status(401).build();
         Optional<Coursework> courseworkOpt = courseService.getCourseworkById(courseworkId);
-        if (courseworkOpt.isEmpty() || courseworkOpt.get().getType() != CourseworkType.NOTE || courseworkOpt.get().getFilePath() == null) {
+        if (courseworkOpt.isEmpty() || courseworkOpt.get().getType() != CourseworkType.NOTE
+                || courseworkOpt.get().getFilePath() == null) {
             return ResponseEntity.notFound().build();
         }
         Coursework note = courseworkOpt.get();
@@ -149,10 +176,12 @@ public class StudentController {
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) {
                 String contentType = note.getFileMimeType();
-                if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+                if (contentType == null || contentType.isBlank())
+                    contentType = "application/octet-stream";
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + note.getOriginalFileName() + "\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "inline; filename=\"" + note.getOriginalFileName() + "\"")
                         .body(resource);
             } else {
                 return ResponseEntity.notFound().build();
@@ -165,10 +194,11 @@ public class StudentController {
     // New endpoint for submitting a quiz
     @PostMapping("/quiz/{courseworkId}/submit")
     public String handleQuizSubmission(@PathVariable Long courseworkId,
-                                       HttpServletRequest request, // To get all parameters
-                                       HttpSession session,
-                                       RedirectAttributes redirectAttributes) {
-        if (!isStudent(session)) return "redirect:/login";
+            HttpServletRequest request, // To get all parameters
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        if (!isStudent(session))
+            return "redirect:/login";
         User student = (User) session.getAttribute("user");
 
         Map<Integer, Integer> answersMap = new HashMap<>();
@@ -194,11 +224,11 @@ public class StudentController {
         }
 
         if (answersMap.isEmpty() && questionIndex > 0) {
-            // This means questions were likely present but nothing was selected or submitted correctly.
+            // This means questions were likely present but nothing was selected or
+            // submitted correctly.
             redirectAttributes.addFlashAttribute("error", "You did not answer any questions.");
             return "redirect:/student/coursework/" + courseworkId;
         }
-
 
         try {
             courseService.submitQuiz(courseworkId, student.getId(), answersMap);
@@ -212,5 +242,47 @@ public class StudentController {
             e.printStackTrace(); // For debugging
         }
         return "redirect:/student/coursework/" + courseworkId;
+    }
+
+    @PostMapping("/course/{courseId}/enroll")
+    public String enrollInCourse(@PathVariable Long courseId, HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        if (!isStudent(session))
+            return "redirect:/login";
+        User student = (User) session.getAttribute("user");
+
+        try {
+            boolean success = courseService.enrollStudent(courseId, student.getId());
+            if (success) {
+                redirectAttributes.addFlashAttribute("success", "Successfully enrolled in the course!");
+            } else {
+                redirectAttributes.addFlashAttribute("info", "You are already enrolled in this course.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error enrolling in course: " + e.getMessage());
+        }
+
+        return "redirect:/student/dashboard";
+    }
+
+    @PostMapping("/course/{courseId}/unenroll")
+    public String unenrollFromCourse(@PathVariable Long courseId, HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        if (!isStudent(session))
+            return "redirect:/login";
+        User student = (User) session.getAttribute("user");
+
+        try {
+            boolean success = courseService.unenrollStudent(courseId, student.getId());
+            if (success) {
+                redirectAttributes.addFlashAttribute("success", "Successfully unenrolled from the course.");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "You are not enrolled in this course.");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Error unenrolling from course: " + e.getMessage());
+        }
+
+        return "redirect:/student/dashboard";
     }
 }

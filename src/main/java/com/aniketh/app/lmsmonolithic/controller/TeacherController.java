@@ -14,11 +14,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 // import java.util.stream.Collectors; // Not used currently
@@ -41,7 +43,8 @@ public class TeacherController {
 
     @GetMapping("/dashboard")
     public String teacherDashboard(HttpSession session, Model model) {
-        if (!isTeacher(session)) return "redirect:/login";
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         model.addAttribute("user", teacher);
         List<Course> courses = courseService.getCoursesByTeacher(teacher.getId());
@@ -52,7 +55,8 @@ public class TeacherController {
 
     @GetMapping("/course/create")
     public String createCoursePage(HttpSession session, Model model) {
-        if (!isTeacher(session)) return "redirect:/login";
+        if (!isTeacher(session))
+            return "redirect:/login";
         model.addAttribute("user", session.getAttribute("user"));
         model.addAttribute("course", new Course());
         model.addAttribute("pageTitle", "Create New Course");
@@ -61,9 +65,10 @@ public class TeacherController {
 
     @PostMapping("/course/create")
     public String handleCreateCourse(@RequestParam String title,
-                                     @RequestParam String description,
-                                     HttpSession session, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+            @RequestParam String description,
+            HttpSession session, RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         try {
             courseService.createCourse(title, description, teacher.getId());
@@ -75,8 +80,10 @@ public class TeacherController {
     }
 
     @GetMapping("/course/{courseId}/manage")
-    public String manageCoursePage(@PathVariable Long courseId, HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+    public String manageCoursePage(@PathVariable Long courseId, HttpSession session, Model model,
+            RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         Optional<Course> courseOpt = courseService.getCourseById(courseId);
 
@@ -92,7 +99,6 @@ public class TeacherController {
         model.addAttribute("courseworkTypes", CourseworkType.values());
         model.addAttribute("newCoursework", new Coursework());
         model.addAttribute("pageTitle", "Manage Course - " + course.getTitle());
-
 
         for (Coursework cw : courseworkList) {
             if (cw.getType() == CourseworkType.ASSIGNMENT) {
@@ -130,8 +136,10 @@ public class TeacherController {
     }
 
     @GetMapping("/coursework/{courseworkId}/quiz/edit")
-    public String editQuizPage(@PathVariable Long courseworkId, HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+    public String editQuizPage(@PathVariable Long courseworkId, HttpSession session, Model model,
+            RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         Optional<Coursework> courseworkOpt = courseService.getCourseworkById(courseworkId);
 
@@ -159,15 +167,18 @@ public class TeacherController {
 
     @PostMapping("/coursework/{courseworkId}/quiz/update")
     public String handleUpdateQuiz(@PathVariable Long courseworkId,
-                                   @RequestParam String title,
-                                   @RequestParam(name="description", required = false) String description, // Quiz description
-                                   @RequestParam(name="questionsText", required=false) String questionsText, // Raw text for questions
-                                   HttpSession session, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+            @RequestParam String title,
+            @RequestParam(name = "description", required = false) String description, // Quiz description
+            @RequestParam(name = "questionsText", required = false) String questionsText, // Raw text for questions
+            @RequestParam(name = "dueDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date dueDate,
+            HttpSession session, RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
 
         try {
-            Coursework updatedQuiz = courseService.updateQuizCoursework(courseworkId, teacher.getId(), title, description, questionsText);
+            Coursework updatedQuiz = courseService.updateQuizCoursework(courseworkId, teacher.getId(), title,
+                    description, questionsText, dueDate);
             redirectAttributes.addFlashAttribute("success", "Quiz updated successfully!");
             return "redirect:/teacher/course/" + updatedQuiz.getCourse().getId() + "/manage";
         } catch (IOException e) {
@@ -184,16 +195,17 @@ public class TeacherController {
         return "redirect:/teacher/dashboard";
     }
 
-
     @PostMapping("/course/{courseId}/coursework/add")
     public String addCoursework(@PathVariable Long courseId,
-                                @RequestParam String title,
-                                @RequestParam CourseworkType type,
-                                @RequestParam(required = false) String content,
-                                @RequestParam(name = "fileNote", required = false) MultipartFile file,
-                                @RequestParam(name = "quizQuestionsText", required = false) String quizQuestionsText,
-                                HttpSession session, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+            @RequestParam String title,
+            @RequestParam CourseworkType type,
+            @RequestParam(required = false) String content,
+            @RequestParam(name = "fileNote", required = false) MultipartFile file,
+            @RequestParam(name = "quizQuestionsText", required = false) String quizQuestionsText,
+            @RequestParam(name = "dueDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date dueDate,
+            HttpSession session, RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         Optional<Course> courseOpt = courseService.getCourseById(courseId);
 
@@ -202,7 +214,7 @@ public class TeacherController {
             return "redirect:/teacher/dashboard";
         }
         try {
-            courseService.addCourseworkToCourse(courseId, title, type, content, file, quizQuestionsText);
+            courseService.addCourseworkToCourse(courseId, title, type, content, file, quizQuestionsText, dueDate);
             redirectAttributes.addFlashAttribute("success", "Coursework added successfully!");
         } catch (IOException e) {
             redirectAttributes.addFlashAttribute("error", "Error processing file: " + e.getMessage());
@@ -215,10 +227,11 @@ public class TeacherController {
 
     @PostMapping("/coursework/{courseworkId}/delete")
     public String deleteCoursework(@PathVariable Long courseworkId,
-                                   @RequestParam Long courseId,
-                                   HttpSession session,
-                                   RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+            @RequestParam Long courseId,
+            HttpSession session,
+            RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         try {
             courseService.deleteCoursework(courseworkId, teacher.getId());
@@ -230,7 +243,6 @@ public class TeacherController {
         }
         return "redirect:/teacher/course/" + courseId + "/manage";
     }
-
 
     @GetMapping("/assignment/submission/{submissionId}/download")
     public ResponseEntity<Resource> downloadAssignmentSubmission(@PathVariable Long submissionId, HttpSession session) {
@@ -251,10 +263,12 @@ public class TeacherController {
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) {
                 String contentType = submission.getFileMimeType();
-                if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+                if (contentType == null || contentType.isBlank())
+                    contentType = "application/octet-stream";
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + submission.getOriginalFileName() + "\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + submission.getOriginalFileName() + "\"")
                         .body(resource);
             } else {
                 System.err.println("File not found or not readable at path: " + submission.getFilePath());
@@ -276,7 +290,8 @@ public class TeacherController {
             return ResponseEntity.status(401).build();
         }
         Optional<Coursework> courseworkOpt = courseService.getCourseworkById(courseworkId);
-        if (courseworkOpt.isEmpty() || courseworkOpt.get().getType() != CourseworkType.NOTE || courseworkOpt.get().getFilePath() == null) {
+        if (courseworkOpt.isEmpty() || courseworkOpt.get().getType() != CourseworkType.NOTE
+                || courseworkOpt.get().getFilePath() == null) {
             return ResponseEntity.notFound().build();
         }
         Coursework note = courseworkOpt.get();
@@ -285,8 +300,6 @@ public class TeacherController {
         if (user.getRole() == Role.TEACHER && course.getTeacher().getId().equals(user.getId())) {
             authorized = true;
         } else if (user.getRole() == Role.STUDENT) {
-            // Simplified auth for students to view notes.
-            // TODO: Implement enrollment check if students should only see notes for enrolled courses.
             authorized = true;
         }
         if (!authorized) {
@@ -297,10 +310,12 @@ public class TeacherController {
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) {
                 String contentType = note.getFileMimeType();
-                if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+                if (contentType == null || contentType.isBlank())
+                    contentType = "application/octet-stream";
                 return ResponseEntity.ok()
                         .contentType(MediaType.parseMediaType(contentType))
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + note.getOriginalFileName() + "\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "inline; filename=\"" + note.getOriginalFileName() + "\"")
                         .body(resource);
             } else {
                 return ResponseEntity.notFound().build();
@@ -311,8 +326,10 @@ public class TeacherController {
     }
 
     @GetMapping("/quiz/{courseworkId}/submissions")
-    public String viewQuizSubmissions(@PathVariable Long courseworkId, HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!isTeacher(session)) return "redirect:/login";
+    public String viewQuizSubmissions(@PathVariable Long courseworkId, HttpSession session, Model model,
+            RedirectAttributes redirectAttributes) {
+        if (!isTeacher(session))
+            return "redirect:/login";
         User teacher = (User) session.getAttribute("user");
         Optional<Coursework> courseworkOpt = courseService.getCourseworkById(courseworkId);
 

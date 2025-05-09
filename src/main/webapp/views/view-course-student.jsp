@@ -1,52 +1,96 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<html>
-<head>
-    <title>Course: ${course.title}</title>
-    <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; color: #333; }
-        .navbar { background-color: #007bff; padding: 15px 30px; color: white; display: flex; justify-content: space-between; align-items: center; }
-        .navbar h1 { margin: 0; font-size: 24px; }
-        .navbar a { color: #fff; text-decoration: none; font-weight: bold; }
-        .container { padding: 20px; max-width: 900px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h2 { color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
-        .course-details p { margin: 5px 0; }
-        .coursework-item { border: 1px solid #eee; padding: 15px; margin-bottom: 10px; border-radius: 5px; background-color: #f9f9f9; }
-        .coursework-item h4 { margin-top: 0; color: #0056b3; }
-        .coursework-item h4 a {text-decoration: none; color: #0056b3;}
-        .coursework-item h4 a:hover {text-decoration: underline;}
-        .link-back { display: inline-block; margin-top: 15px; margin-bottom: 15px; color: #007bff; text-decoration: none; }
-        .link-back:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-<div class="navbar">
-    <h1>LMS Student</h1>
-    <div>Welcome, ${user.fullName} | <a href="<c:url value='/logout'/>">Logout</a></div>
-</div>
+    <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+        <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+            <!DOCTYPE html>
+            <html>
 
-<div class="container">
-    <a href="<c:url value='/student/dashboard'/>" class="link-back">&laquo; Back to Courses</a>
-    <h2>${course.title}</h2>
-    <div class="course-details">
-        <p><strong>Taught by:</strong> ${course.teacher.fullName}</p>
-        <p><strong>Description:</strong> ${course.description}</p>
-    </div>
-    <hr>
+            <head>
+                <title>Course: ${course.title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+                    rel="stylesheet">
+                <link rel="stylesheet"
+                    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+                <link rel="stylesheet" href="<c:url value='/styles/view-course-student.css'/>">
+            </head>
 
-    <h3>Course Materials</h3>
-    <c:choose>
-        <c:when test="${not empty courseworkList}">
-            <c:forEach var="cw" items="${courseworkList}">
-                <div class="coursework-item">
-                    <h4><a href="<c:url value='/student/coursework/${cw.id}'/>">${cw.title} (${cw.type})</a></h4>
+            <body>
+                <!-- Original navbar - hidden via CSS but kept for functionality -->
+                <div class="navbar">
+                    <h1>LMS Student</h1>
+                    <div>Welcome, ${user.fullName} | <a href="<c:url value='/logout'/>">Logout</a></div>
                 </div>
-            </c:forEach>
-        </c:when>
-        <c:otherwise>
-            <p>No materials added to this course yet.</p>
-        </c:otherwise>
-    </c:choose>
-</div>
-</body>
-</html>
+
+                <div class="container">
+                    <!-- Back link matching the design -->
+                    <a href="<c:url value='/student/dashboard'/>" class="back-link">Back to Courses</a>
+
+                    <!-- Course info card -->
+                    <div class="course-card">
+                        <h2 class="course-title">${course.title}</h2>
+
+                        <div class="course-instructor">
+                            <div class="course-instructor-icon">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
+                            <span class="taught-by">Taught by:</span>&nbsp;${course.teacher.fullName}
+                        </div>
+
+                        <div class="course-description">
+                            <div class="course-description-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div> <span class="taught-by">Description:</span>&nbsp;${course.description}</div>
+                        </div>
+                    </div>
+
+                    <!-- Course materials card -->
+                    <div class="course-materials-card">
+                        <h3 class="materials-header">
+                            <div class="materials-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            Course Materials
+                        </h3>
+
+                        <c:choose>
+                            <c:when test="${not empty courseworkList}">
+                                <c:forEach var="cw" items="${courseworkList}">
+                                    <a href="<c:url value='/student/coursework/${cw.id}'/>"
+                                        style="text-decoration: none;">
+                                        <div class="material-item">
+                                            <div class="material-icon">
+                                                <i class="fas fa-file-alt"></i>
+                                            </div>
+                                            <div>
+                                                <span class="material-title">${cw.title}</span>
+                                                <span class="material-type">(${cw.type})</span>
+                                                <c:if test="${not empty cw.dueDate}">
+                                                    <span class="material-due-date">Due:
+                                                        <fmt:formatDate value="${cw.dueDate}" pattern="MMM d, yyyy" />
+                                                    </span>
+                                                </c:if>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </c:forEach>
+                            </c:when>
+                            <c:otherwise>
+                                <div class="empty-materials">
+                                    <div class="empty-icon">
+                                        <i class="fas fa-folder-open"></i>
+                                    </div>
+                                    <p>No materials added to this course yet.</p>
+                                </div>
+                            </c:otherwise>
+                        </c:choose>
+                    </div>
+
+                    <!-- Keep the original elements hidden but present for functionality -->
+                    <div style="display: none;">
+                        <a href="<c:url value='/student/dashboard'/>" class="link-back">&laquo; Back to Courses</a>
+                        <hr>
+                    </div>
+                </div>
+            </body>
+
+            </html>

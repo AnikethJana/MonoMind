@@ -21,13 +21,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList; // New import
+import java.util.Date;
 import java.util.List;
 import java.util.Map; // New import
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher; // New import
-import java.util.regex.Pattern; // New import
-
 
 @Service
 public class CourseService {
@@ -42,13 +40,12 @@ public class CourseService {
     private final String NOTE_UPLOAD_DIR = "./uploads/course_notes/";
     private final String ASSIGNMENT_SUBMISSION_DIR = "./uploads/assignment_submissions/";
 
-
     @Autowired
     public CourseService(CourseRepository courseRepository,
-                         CourseworkRepository courseworkRepository,
-                         UserRepository userRepository,
-                         AssignmentSubmissionRepository assignmentSubmissionRepository,
-                         QuizSubmissionRepository quizSubmissionRepository) { // Added quizSubmissionRepository
+            CourseworkRepository courseworkRepository,
+            UserRepository userRepository,
+            AssignmentSubmissionRepository assignmentSubmissionRepository,
+            QuizSubmissionRepository quizSubmissionRepository) { // Added quizSubmissionRepository
         this.courseRepository = courseRepository;
         this.courseworkRepository = courseworkRepository;
         this.userRepository = userRepository;
@@ -87,11 +84,73 @@ public class CourseService {
     }
 
     @Transactional
-    public Coursework addCourseworkToCourse(Long courseId, String title, CourseworkType type, String textContent, MultipartFile file, String quizQuestionsRawText) throws IOException {
+    public boolean enrollStudent(Long courseId, Long studentId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course not found with ID: " + courseId));
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with ID: " + studentId));
+
+        // Check if student is already enrolled
+        if (course.getEnrolledStudents().contains(student)) {
+            return false; // Student already enrolled
+        }
+
+        // Add student to the course
+        course.getEnrolledStudents().add(student);
+        courseRepository.save(course);
+        return true;
+    }
+
+    @Transactional
+    public boolean unenrollStudent(Long courseId, Long studentId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course not found with ID: " + courseId));
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with ID: " + studentId));
+
+        boolean removed = course.getEnrolledStudents().removeIf(s -> s.getId().equals(studentId));
+        if (removed) {
+            courseRepository.save(course);
+        }
+        return removed;
+    }
+
+    public List<Course> getEnrolledCourses(Long studentId) {
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found with ID: " + studentId));
+
+        // Get all courses where student is enrolled
+        List<Course> allCourses = courseRepository.findAll();
+        List<Course> enrolledCourses = new ArrayList<>();
+
+        for (Course course : allCourses) {
+            if (course.getEnrolledStudents().contains(student)) {
+                enrolledCourses.add(course);
+            }
+        }
+
+        return enrolledCourses;
+    }
+
+    public boolean isStudentEnrolled(Long courseId, Long studentId) {
+        Course course = courseRepository.findById(courseId).orElse(null);
+        User student = userRepository.findById(studentId).orElse(null);
+
+        if (course == null || student == null) {
+            return false;
+        }
+
+        return course.getEnrolledStudents().contains(student);
+    }
+
+    @Transactional
+    public Coursework addCourseworkToCourse(Long courseId, String title, CourseworkType type, String textContent,
+            MultipartFile file, String quizQuestionsRawText, Date dueDate) throws IOException {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course not found with ID: " + courseId));
 
         Coursework coursework = new Coursework(title, type, textContent, course); // textContent is description for quiz
+        coursework.setDueDate(dueDate);
 
         if (type == CourseworkType.NOTE && file != null && !file.isEmpty()) {
             String originalFileName = org.springframework.util.StringUtils.cleanPath(file.getOriginalFilename());
@@ -105,7 +164,8 @@ public class CourseService {
             coursework.setFilePath(targetLocation.toString());
             coursework.setOriginalFileName(originalFileName);
             coursework.setFileMimeType(file.getContentType());
-            // coursework.setContent("File attached: " + originalFileName); // This was original behavior
+            // coursework.setContent("File attached: " + originalFileName); // This was
+            // original behavior
             coursework.setContent(textContent); // Keep description if provided
         } else if (type == CourseworkType.NOTE || type == CourseworkType.ASSIGNMENT) {
             coursework.setContent(textContent);
@@ -128,7 +188,6 @@ public class CourseService {
         return courseworkRepository.save(coursework);
     }
 
-
     public List<Coursework> getCourseworkForCourse(Long courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course not found with ID: " + courseId));
@@ -149,16 +208,19 @@ public class CourseService {
     // --- (separator)
     private List<QuizQuestion> parseQuizQuestionsFromText(String rawText) {
         List<QuizQuestion> questions = new ArrayList<>();
-        if (rawText == null || rawText.isBlank()) return questions;
+        if (rawText == null || rawText.isBlank())
+            return questions;
 
         String[] questionBlocks = rawText.split("---"); // Split by "---" separator
 
         for (String block : questionBlocks) {
             block = block.trim();
-            if (block.isEmpty()) continue;
+            if (block.isEmpty())
+                continue;
 
             String[] lines = block.split("\\r?\\n"); // Split each block by lines
-            if (lines.length < 2) continue; // Need at least question and one option
+            if (lines.length < 2)
+                continue; // Need at least question and one option
 
             StringBuilder qTextBuilder = new StringBuilder();
             List<String> options = new ArrayList<>();
@@ -166,13 +228,13 @@ public class CourseService {
             int lineIndex = 0;
 
             // Assume first lines until an option marker (A), B), etc.) are question text
-            while(lineIndex < lines.length && !lines[lineIndex].trim().matches("^[A-Za-z][).].*")) {
+            while (lineIndex < lines.length && !lines[lineIndex].trim().matches("^[A-Za-z][).].*")) {
                 qTextBuilder.append(lines[lineIndex].trim()).append(" ");
                 lineIndex++;
             }
             String questionText = qTextBuilder.toString().trim();
-            if (questionText.isEmpty()) continue;
-
+            if (questionText.isEmpty())
+                continue;
 
             for (int i = lineIndex; i < lines.length; i++) {
                 String line = lines[i].trim();
@@ -198,13 +260,13 @@ public class CourseService {
             return new ArrayList<>();
         }
         try {
-            return objectMapper.readValue(quizCoursework.getQuestionsJson(), new TypeReference<List<QuizQuestion>>() {});
+            return objectMapper.readValue(quizCoursework.getQuestionsJson(), new TypeReference<List<QuizQuestion>>() {
+            });
         } catch (JsonProcessingException e) {
             System.err.println("Error parsing quiz questions JSON: " + e.getMessage());
             return new ArrayList<>();
         }
     }
-
 
     @Transactional
     public void deleteCoursework(Long courseworkId, Long teacherId) throws IOException {
@@ -215,9 +277,13 @@ public class CourseService {
             throw new SecurityException("Teacher not authorized to delete this coursework.");
         }
 
-        if (coursework.getType() == CourseworkType.NOTE && coursework.getFilePath() != null && !coursework.getFilePath().isBlank()) {
-            try { Files.deleteIfExists(Paths.get(coursework.getFilePath())); }
-            catch (IOException e) { System.err.println("Error deleting note file: " + coursework.getFilePath() + " - " + e.getMessage()); }
+        if (coursework.getType() == CourseworkType.NOTE && coursework.getFilePath() != null
+                && !coursework.getFilePath().isBlank()) {
+            try {
+                Files.deleteIfExists(Paths.get(coursework.getFilePath()));
+            } catch (IOException e) {
+                System.err.println("Error deleting note file: " + coursework.getFilePath() + " - " + e.getMessage());
+            }
         }
 
         if (coursework.getType() == CourseworkType.ASSIGNMENT) {
@@ -225,8 +291,12 @@ public class CourseService {
             if (submissions != null && !submissions.isEmpty()) {
                 for (AssignmentSubmission submission : submissions) {
                     if (submission.getFilePath() != null && !submission.getFilePath().isBlank()) {
-                        try { Files.deleteIfExists(Paths.get(submission.getFilePath())); }
-                        catch (IOException e) { System.err.println("Error deleting submission file: " + submission.getFilePath() + " - " + e.getMessage()); }
+                        try {
+                            Files.deleteIfExists(Paths.get(submission.getFilePath()));
+                        } catch (IOException e) {
+                            System.err.println("Error deleting submission file: " + submission.getFilePath() + " - "
+                                    + e.getMessage());
+                        }
                     }
                 }
                 assignmentSubmissionRepository.deleteAll(submissions);
@@ -243,35 +313,44 @@ public class CourseService {
 
     // --- Assignment Submission Methods (Existing) ---
     @Transactional
-    public AssignmentSubmission submitAssignment(Long courseworkId, Long studentId, MultipartFile assignmentFile) throws IOException {
+    public AssignmentSubmission submitAssignment(Long courseworkId, Long studentId, MultipartFile assignmentFile)
+            throws IOException {
         Coursework assignment = courseworkRepository.findById(courseworkId)
                 .filter(cw -> cw.getType() == CourseworkType.ASSIGNMENT)
-                .orElseThrow(() -> new IllegalArgumentException("Assignment (Coursework) not found or not of type ASSIGNMENT: " + courseworkId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Assignment (Coursework) not found or not of type ASSIGNMENT: " + courseworkId));
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentId));
-        if (assignmentFile.isEmpty()) throw new IllegalArgumentException("Assignment file cannot be empty.");
+        if (assignmentFile.isEmpty())
+            throw new IllegalArgumentException("Assignment file cannot be empty.");
 
         String originalFileName = org.springframework.util.StringUtils.cleanPath(assignmentFile.getOriginalFilename());
         String uniqueFileName = UUID.randomUUID().toString() + "_" + originalFileName;
-        Path studentSubmissionDir = Paths.get(ASSIGNMENT_SUBMISSION_DIR, String.valueOf(courseworkId), String.valueOf(studentId));
+        Path studentSubmissionDir = Paths.get(ASSIGNMENT_SUBMISSION_DIR, String.valueOf(courseworkId),
+                String.valueOf(studentId));
         Files.createDirectories(studentSubmissionDir);
         Path targetLocation = studentSubmissionDir.resolve(uniqueFileName);
         Files.copy(assignmentFile.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-        Optional<AssignmentSubmission> existingSubmissionOpt = assignmentSubmissionRepository.findByAssignmentAndStudent(assignment, student);
+        Optional<AssignmentSubmission> existingSubmissionOpt = assignmentSubmissionRepository
+                .findByAssignmentAndStudent(assignment, student);
         AssignmentSubmission submission;
         if (existingSubmissionOpt.isPresent()) {
             submission = existingSubmissionOpt.get();
             if (submission.getFilePath() != null && !submission.getFilePath().isBlank()) {
-                try { Files.deleteIfExists(Paths.get(submission.getFilePath())); }
-                catch (IOException e) { System.err.println("Could not delete old submission file: " + submission.getFilePath());}
+                try {
+                    Files.deleteIfExists(Paths.get(submission.getFilePath()));
+                } catch (IOException e) {
+                    System.err.println("Could not delete old submission file: " + submission.getFilePath());
+                }
             }
             submission.setFilePath(targetLocation.toString());
             submission.setOriginalFileName(originalFileName);
             submission.setFileMimeType(assignmentFile.getContentType());
             submission.setSubmissionDate(LocalDateTime.now());
         } else {
-            submission = new AssignmentSubmission(assignment, student, targetLocation.toString(), originalFileName, assignmentFile.getContentType());
+            submission = new AssignmentSubmission(assignment, student, targetLocation.toString(), originalFileName,
+                    assignmentFile.getContentType());
         }
         return assignmentSubmissionRepository.save(submission);
     }
@@ -295,7 +374,8 @@ public class CourseService {
     public QuizSubmission submitQuiz(Long courseworkId, Long studentId, Map<Integer, Integer> answersMap) {
         Coursework quizCoursework = courseworkRepository.findById(courseworkId)
                 .filter(cw -> cw.getType() == CourseworkType.QUIZ)
-                .orElseThrow(() -> new IllegalArgumentException("Quiz (Coursework) not found or not of type QUIZ: " + courseworkId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Quiz (Coursework) not found or not of type QUIZ: " + courseworkId));
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentId));
 
@@ -322,16 +402,18 @@ public class CourseService {
             throw new RuntimeException("Error serializing quiz answers: " + e.getMessage(), e);
         }
 
-        // Check for existing submission and update if resubmission is allowed (KISS: allow one submission for now)
-        Optional<QuizSubmission> existingSubmissionOpt = quizSubmissionRepository.findByQuizCourseworkAndStudent(quizCoursework, student);
+        // Check for existing submission and update if resubmission is allowed (KISS:
+        // allow one submission for now)
+        Optional<QuizSubmission> existingSubmissionOpt = quizSubmissionRepository
+                .findByQuizCourseworkAndStudent(quizCoursework, student);
         if (existingSubmissionOpt.isPresent()) {
             // For KISS, we can prevent re-submission or update the existing one.
             // Let's prevent for now. For update, add logic here.
             throw new IllegalStateException("You have already submitted this quiz.");
         }
 
-
-        QuizSubmission submission = new QuizSubmission(quizCoursework, student, answersJson, score, questions.size(), correctAnswersCount);
+        QuizSubmission submission = new QuizSubmission(quizCoursework, student, answersJson, score, questions.size(),
+                correctAnswersCount);
         return quizSubmissionRepository.save(submission);
     }
 
@@ -339,21 +421,25 @@ public class CourseService {
         Coursework quizCoursework = courseworkRepository.findById(courseworkId)
                 .filter(cw -> cw.getType() == CourseworkType.QUIZ)
                 .orElse(null);
-        if (quizCoursework == null) return Optional.empty();
+        if (quizCoursework == null)
+            return Optional.empty();
         User student = userRepository.findById(studentId).orElse(null);
-        if (student == null) return Optional.empty();
+        if (student == null)
+            return Optional.empty();
         return quizSubmissionRepository.findByQuizCourseworkAndStudent(quizCoursework, student);
     }
 
     public List<QuizSubmission> getSubmissionsForQuiz(Long courseworkId) {
         Coursework quizCoursework = courseworkRepository.findById(courseworkId)
                 .filter(cw -> cw.getType() == CourseworkType.QUIZ)
-                .orElseThrow(() -> new IllegalArgumentException("Quiz (Coursework) not found or not of type QUIZ: " + courseworkId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Quiz (Coursework) not found or not of type QUIZ: " + courseworkId));
         return quizSubmissionRepository.findByQuizCoursework(quizCoursework);
     }
 
     @Transactional
-    public Coursework updateQuizCoursework(Long courseworkId, Long teacherId, String title, String description, String quizQuestionsRawText) throws IOException {
+    public Coursework updateQuizCoursework(Long courseworkId, Long teacherId, String title, String description,
+            String quizQuestionsRawText, Date dueDate) throws IOException {
         Coursework coursework = courseworkRepository.findById(courseworkId)
                 .orElseThrow(() -> new IllegalArgumentException("Coursework not found with ID: " + courseworkId));
 
@@ -366,17 +452,20 @@ public class CourseService {
 
         coursework.setTitle(title);
         coursework.setContent(description); // Quiz description
+        coursework.setDueDate(dueDate);
 
         if (quizQuestionsRawText != null && !quizQuestionsRawText.isBlank()) {
             List<QuizQuestion> questions = parseQuizQuestionsFromText(quizQuestionsRawText);
             try {
                 coursework.setQuestionsJson(objectMapper.writeValueAsString(questions));
             } catch (JsonProcessingException e) {
-                throw new IllegalArgumentException("Error processing quiz questions JSON for update: " + e.getMessage());
+                throw new IllegalArgumentException(
+                        "Error processing quiz questions JSON for update: " + e.getMessage());
             }
         } else {
             // If raw text is empty, it could mean clearing questions or no change.
-            // For KISS, if empty, we assume no change to questions unless explicitly handled.
+            // For KISS, if empty, we assume no change to questions unless explicitly
+            // handled.
             // Or, to clear questions: coursework.setQuestionsJson("[]");
         }
         return courseworkRepository.save(coursework);
